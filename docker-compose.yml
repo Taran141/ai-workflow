@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: ai-workflow-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-workflow-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: ai-workflow-backend
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env.example
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: ai-workflow-frontend
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"
+
+volumes:
+  mongo_data:
+

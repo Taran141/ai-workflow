@@ -1,0 +1,129 @@
+import { Component, inject } from "@angular/core";
+import { FormBuilder, Validators } from "@angular/forms";
+import { HttpErrorResponse } from "@angular/common/http";
+import { Router } from "@angular/router";
+import { finalize } from "rxjs";
+import { AuthService } from "../../core/services/auth.service";
+
+@Component({
+  selector: "app-register",
+  template: `
+    <div class="auth-shell">
+      <div class="auth-layout">
+        <section class="hero-banner surface-card auth-story">
+          <div class="eyebrow">Set up your workspace</div>
+          <h1>Start with one account, then invite the rest of the team.</h1>
+          <p>
+            Create an admin account to generate workflows, assign work, monitor live progress, and review activity in
+            one place.
+          </p>
+          <div class="auth-highlights">
+            <div class="auth-highlight">
+              <mat-icon>auto_awesome</mat-icon>
+              <span>Turn prompts into structured workflows</span>
+            </div>
+            <div class="auth-highlight">
+              <mat-icon>assignment_turned_in</mat-icon>
+              <span>Track tasks from backlog to completion</span>
+            </div>
+            <div class="auth-highlight">
+              <mat-icon>notifications_active</mat-icon>
+              <span>Keep everyone updated with live notifications</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="surface-card auth-card auth-form-card">
+          <div class="auth-form-header">
+            <div class="eyebrow">Create account</div>
+            <h2>Create your workspace account</h2>
+            <p>Choose a strong password and pick the role you want to start with.</p>
+          </div>
+
+          <form class="form-grid" [formGroup]="form" (ngSubmit)="submit()">
+            <mat-form-field appearance="outline">
+              <mat-label>Name</mat-label>
+              <input matInput formControlName="name" />
+              <mat-error *ngIf="showError('name', 'required')">Name is required.</mat-error>
+              <mat-error *ngIf="showError('name', 'minlength')">Name must be at least 2 characters.</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Email</mat-label>
+              <input matInput formControlName="email" />
+              <mat-error *ngIf="showError('email', 'required')">Email is required.</mat-error>
+              <mat-error *ngIf="showError('email', 'email')">Enter a valid email address.</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Password</mat-label>
+              <input matInput type="password" formControlName="password" />
+              <mat-hint>Use 8+ characters with uppercase, lowercase, and a number.</mat-hint>
+              <mat-error *ngIf="showError('password', 'required')">Password is required.</mat-error>
+              <mat-error *ngIf="showError('password', 'minlength')">Password must be at least 8 characters.</mat-error>
+              <mat-error *ngIf="showError('password', 'pattern')">
+                Password must include uppercase, lowercase, and a number.
+              </mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Role</mat-label>
+              <mat-select formControlName="role">
+                <mat-option value="user">User</mat-option>
+                <mat-option value="admin">Admin</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <div class="inline-tips">
+              <div class="mini-tip"><mat-icon>admin_panel_settings</mat-icon><span>Admin can manage workflows.</span></div>
+              <div class="mini-tip"><mat-icon>person</mat-icon><span>User is better for assignees and contributors.</span></div>
+            </div>
+            <div class="form-error" *ngIf="submitError">{{ submitError }}</div>
+            <button mat-raised-button color="primary" type="submit" class="primary-action" [disabled]="isSubmitting || form.invalid">
+              {{ isSubmitting ? 'Registering...' : 'Create account' }}
+            </button>
+            <a routerLink="/auth/login" class="auth-switch">Already have an account? Sign in</a>
+          </form>
+        </section>
+      </div>
+    </div>
+  `
+})
+export class RegisterComponent {
+  private static readonly passwordPattern = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).+$/;
+  private readonly fb = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  isSubmitting = false;
+  submitError = "";
+
+  readonly form = this.fb.group({
+    name: ["", [Validators.required, Validators.minLength(2)]],
+    email: ["", [Validators.required, Validators.email]],
+    password: [
+      "",
+      [Validators.required, Validators.minLength(8), Validators.pattern(RegisterComponent.passwordPattern)]
+    ],
+    role: ["user" as "admin" | "user", [Validators.required]]
+  });
+
+  showError(controlName: "name" | "email" | "password" | "role", errorCode: string) {
+    const control = this.form.get(controlName);
+    return !!control && control.touched && control.hasError(errorCode);
+  }
+
+  submit() {
+    this.submitError = "";
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.isSubmitting = true;
+    this.authService
+      .register(this.form.getRawValue() as { name: string; email: string; password: string; role: "admin" | "user" })
+      .pipe(finalize(() => (this.isSubmitting = false)))
+      .subscribe({
+        next: () => this.router.navigateByUrl("/dashboard"),
+        error: (error: HttpErrorResponse) => {
+          this.submitError = error.error?.message ?? "Registration failed. Please check your details and try again.";
+        }
+      });
+  }
+}
