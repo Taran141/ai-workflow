@@ -8,18 +8,21 @@ import { AuthStateService } from "../../core/services/auth-state.service";
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand-panel">
+          <div class="brand-mark" aria-hidden="true">AW</div>
           <div class="brand">AI Workflow Cloud</div>
           <p class="brand-copy">Plan, assign, and monitor team workflows from one calm control center.</p>
         </div>
 
-        <div class="user-badge surface-card" *ngIf="currentUser">
+        <div class="user-badge" *ngIf="currentUser">
           <div class="user-avatar">{{ currentUser.name.charAt(0) }}</div>
-          <div>
+          <div class="user-meta">
+            <div class="user-meta-label">Workspace member</div>
             <strong>{{ currentUser.name }}</strong>
             <div>{{ currentUser.role | titlecase }}</div>
           </div>
         </div>
 
+        <div class="sidebar-section-label">Navigation</div>
         <nav class="nav-group">
           <a routerLink="/dashboard" routerLinkActive="active" class="nav-link">
             <mat-icon>space_dashboard</mat-icon>

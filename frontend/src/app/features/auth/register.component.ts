@@ -11,6 +11,7 @@ import { AuthService } from "../../core/services/auth.service";
     <div class="auth-shell">
       <div class="auth-layout">
         <section class="hero-banner surface-card auth-story">
+          <div class="auth-story-glow" aria-hidden="true"></div>
           <div class="eyebrow">Set up your workspace</div>
           <h1>Start with one account, then invite the rest of the team.</h1>
           <p>
@@ -41,44 +42,49 @@ import { AuthService } from "../../core/services/auth.service";
           </div>
 
           <form class="form-grid" [formGroup]="form" (ngSubmit)="submit()">
-            <mat-form-field appearance="outline">
-              <mat-label>Name</mat-label>
-              <input matInput formControlName="name" />
-              <mat-error *ngIf="showError('name', 'required')">Name is required.</mat-error>
-              <mat-error *ngIf="showError('name', 'minlength')">Name must be at least 2 characters.</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Email</mat-label>
-              <input matInput formControlName="email" />
-              <mat-error *ngIf="showError('email', 'required')">Email is required.</mat-error>
-              <mat-error *ngIf="showError('email', 'email')">Enter a valid email address.</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Password</mat-label>
-              <input matInput type="password" formControlName="password" />
-              <mat-hint>Use 8+ characters with uppercase, lowercase, and a number.</mat-hint>
-              <mat-error *ngIf="showError('password', 'required')">Password is required.</mat-error>
-              <mat-error *ngIf="showError('password', 'minlength')">Password must be at least 8 characters.</mat-error>
-              <mat-error *ngIf="showError('password', 'pattern')">
+            <label class="auth-field" [class.has-error]="showError('name', 'required') || showError('name', 'minlength')">
+              <span class="auth-label">Name</span>
+              <input class="auth-input" type="text" formControlName="name" placeholder="Taran Sharma" />
+              <span class="auth-help auth-help-error" *ngIf="showError('name', 'required')">Name is required.</span>
+              <span class="auth-help auth-help-error" *ngIf="showError('name', 'minlength')">Name must be at least 2 characters.</span>
+            </label>
+            <label class="auth-field" [class.has-error]="showError('email', 'required') || showError('email', 'email')">
+              <span class="auth-label">Email</span>
+              <input class="auth-input" type="email" formControlName="email" placeholder="name@company.com" />
+              <span class="auth-help auth-help-error" *ngIf="showError('email', 'required')">Email is required.</span>
+              <span class="auth-help auth-help-error" *ngIf="showError('email', 'email')">Enter a valid email address.</span>
+            </label>
+            <label class="auth-field" [class.has-error]="showError('password', 'required') || showError('password', 'minlength') || showError('password', 'pattern')">
+              <span class="auth-label">Password</span>
+              <input class="auth-input" type="password" formControlName="password" placeholder="Create a strong password" />
+              <span class="auth-help">Use 8+ characters with uppercase, lowercase, and a number.</span>
+              <span class="auth-help auth-help-error" *ngIf="showError('password', 'required')">Password is required.</span>
+              <span class="auth-help auth-help-error" *ngIf="showError('password', 'minlength')">Password must be at least 8 characters.</span>
+              <span class="auth-help auth-help-error" *ngIf="showError('password', 'pattern')">
                 Password must include uppercase, lowercase, and a number.
-              </mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Role</mat-label>
-              <mat-select formControlName="role">
-                <mat-option value="user">User</mat-option>
-                <mat-option value="admin">Admin</mat-option>
-              </mat-select>
-            </mat-form-field>
+              </span>
+            </label>
+            <label class="auth-field">
+              <span class="auth-label">Role</span>
+              <div class="auth-select-wrap">
+                <select class="auth-input auth-select" formControlName="role">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <span class="auth-select-icon" aria-hidden="true">▾</span>
+              </div>
+            </label>
             <div class="inline-tips">
               <div class="mini-tip"><mat-icon>admin_panel_settings</mat-icon><span>Admin can manage workflows.</span></div>
               <div class="mini-tip"><mat-icon>person</mat-icon><span>User is better for assignees and contributors.</span></div>
             </div>
             <div class="form-error" *ngIf="submitError">{{ submitError }}</div>
-            <button mat-raised-button color="primary" type="submit" class="primary-action" [disabled]="isSubmitting || form.invalid">
-              {{ isSubmitting ? 'Registering...' : 'Create account' }}
-            </button>
-            <a routerLink="/auth/login" class="auth-switch">Already have an account? Sign in</a>
+            <div class="auth-actions">
+              <button type="submit" class="primary-action" [disabled]="isSubmitting || form.invalid">
+                {{ isSubmitting ? 'Registering...' : 'Create account' }}
+              </button>
+              <a routerLink="/auth/login" class="auth-switch">Already have an account? Sign in</a>
+            </div>
           </form>
         </section>
       </div>

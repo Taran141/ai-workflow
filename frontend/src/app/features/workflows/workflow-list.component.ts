@@ -9,7 +9,8 @@ import { Workflow } from "../../core/models/workflow.models";
   selector: "app-workflow-list",
   template: `
     <div class="page-header">
-      <div>
+      <div class="workflow-page-intro">
+        <div class="eyebrow">Workflow studio</div>
         <h1 class="page-title">Workflow Builder</h1>
         <p class="page-subtitle">Describe the process in plain language and turn it into something your team can run.</p>
       </div>
@@ -18,21 +19,26 @@ import { Workflow } from "../../core/models/workflow.models";
     <div class="surface-card panel workflow-builder-panel">
       <form class="form-grid" [formGroup]="promptForm" (ngSubmit)="generate()">
         <div class="panel-heading">
-          <div>
+          <div class="workflow-builder-copy">
             <h3>Generate a workflow</h3>
             <p>Try prompts like "client onboarding with approvals and reminders" or "bug triage for urgent issues."</p>
           </div>
         </div>
-        <mat-form-field appearance="outline">
-          <mat-label>AI Prompt</mat-label>
-          <textarea matInput rows="4" formControlName="prompt"></textarea>
-        </mat-form-field>
-        <div class="toolbar-actions">
-          <button mat-raised-button color="primary" type="submit" class="primary-action">Generate Workflow</button>
-          <mat-form-field appearance="outline" class="search-input">
-            <mat-label>Search workflows</mat-label>
-            <input matInput (input)="onSearch($any($event.target).value)" />
-          </mat-form-field>
+        <label class="auth-field workflow-prompt-field">
+          <span class="auth-label">AI Prompt</span>
+          <textarea
+            class="auth-input workflow-textarea"
+            rows="5"
+            formControlName="prompt"
+            placeholder="Create employee onboarding workflow with document collection, manager approval, IT setup, and first-week check-ins"
+          ></textarea>
+        </label>
+        <div class="workflow-builder-actions">
+          <button type="submit" class="primary-action workflow-generate-button">Generate Workflow</button>
+          <label class="auth-field search-input workflow-search-field">
+            <span class="auth-label">Search workflows</span>
+            <input class="auth-input" type="text" placeholder="Search by title or use case" (input)="onSearch($any($event.target).value)" />
+          </label>
         </div>
       </form>
     </div>

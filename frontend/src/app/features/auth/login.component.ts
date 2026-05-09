@@ -11,6 +11,7 @@ import { AuthService } from "../../core/services/auth.service";
     <div class="auth-shell">
       <div class="auth-layout">
         <section class="hero-banner surface-card auth-story">
+          <div class="auth-story-glow" aria-hidden="true"></div>
           <div class="eyebrow">AI Workflow Cloud</div>
           <h1>Run complex work without making people fight the software.</h1>
           <p>
@@ -41,22 +42,24 @@ import { AuthService } from "../../core/services/auth.service";
           </div>
 
           <form class="form-grid" [formGroup]="form" (ngSubmit)="submit()">
-            <mat-form-field appearance="outline">
-              <mat-label>Email</mat-label>
-              <input matInput formControlName="email" />
-              <mat-error *ngIf="showError('email', 'required')">Email is required.</mat-error>
-              <mat-error *ngIf="showError('email', 'email')">Enter a valid email address.</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Password</mat-label>
-              <input matInput type="password" formControlName="password" />
-              <mat-error *ngIf="showError('password', 'required')">Password is required.</mat-error>
-            </mat-form-field>
+            <label class="auth-field" [class.has-error]="showError('email', 'required') || showError('email', 'email')">
+              <span class="auth-label">Email</span>
+              <input class="auth-input" type="email" formControlName="email" placeholder="name@company.com" />
+              <span class="auth-help auth-help-error" *ngIf="showError('email', 'required')">Email is required.</span>
+              <span class="auth-help auth-help-error" *ngIf="showError('email', 'email')">Enter a valid email address.</span>
+            </label>
+            <label class="auth-field" [class.has-error]="showError('password', 'required')">
+              <span class="auth-label">Password</span>
+              <input class="auth-input" type="password" formControlName="password" placeholder="Enter your password" />
+              <span class="auth-help auth-help-error" *ngIf="showError('password', 'required')">Password is required.</span>
+            </label>
             <div class="form-error" *ngIf="submitError">{{ submitError }}</div>
-            <button mat-raised-button color="primary" type="submit" class="primary-action" [disabled]="isSubmitting || form.invalid">
-              {{ isSubmitting ? 'Signing in...' : 'Sign in' }}
-            </button>
-            <a routerLink="/auth/register" class="auth-switch">Create an account</a>
+            <div class="auth-actions">
+              <button type="submit" class="primary-action" [disabled]="isSubmitting || form.invalid">
+                {{ isSubmitting ? 'Signing in...' : 'Sign in' }}
+              </button>
+              <a routerLink="/auth/register" class="auth-switch">Create an account</a>
+            </div>
           </form>
         </section>
       </div>
