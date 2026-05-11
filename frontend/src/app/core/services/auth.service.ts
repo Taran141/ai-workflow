@@ -19,7 +19,7 @@ export class AuthService {
     );
   }
 
-  register(payload: { name: string; email: string; password: string; role: "admin" | "user" }) {
+  register(payload: { name: string; email: string; password: string; phone?: string; role: "admin" | "user" }) {
     return this.api.post<AuthResponse>("/auth/register", payload).pipe(
       tap((response) => this.authState.setSession(response.token, response.user))
     );
@@ -30,4 +30,3 @@ export class AuthService {
     this.router.navigateByUrl("/auth/login");
   }
 }
-

@@ -9,7 +9,7 @@ export class AuthService {
     private readonly tokenService = new TokenService()
   ) {}
 
-  async register(payload: { name: string; email: string; password: string; role: "admin" | "user" }) {
+  async register(payload: { name: string; email: string; password: string; phone?: string; role: "admin" | "user" }) {
     const existing = await this.userRepository.findByEmail(payload.email);
     if (existing) {
       throw new AppError(StatusCodes.CONFLICT, "User already exists");
@@ -30,4 +30,3 @@ export class AuthService {
     return { user, token };
   }
 }
-

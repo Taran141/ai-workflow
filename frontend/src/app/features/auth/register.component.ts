@@ -1,6 +1,6 @@
+import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject } from "@angular/core";
 import { FormBuilder, Validators } from "@angular/forms";
-import { HttpErrorResponse } from "@angular/common/http";
 import { Router } from "@angular/router";
 import { finalize } from "rxjs";
 import { AuthService } from "../../core/services/auth.service";
@@ -38,7 +38,7 @@ import { AuthService } from "../../core/services/auth.service";
           <div class="auth-form-header">
             <div class="eyebrow">Create account</div>
             <h2>Create your workspace account</h2>
-            <p>Choose a strong password and pick the role you want to start with.</p>
+            <p>Choose a strong password, add your phone number, and pick the role you want to start with.</p>
           </div>
 
           <form class="form-grid" [formGroup]="form" (ngSubmit)="submit()">
@@ -48,12 +48,21 @@ import { AuthService } from "../../core/services/auth.service";
               <span class="auth-help auth-help-error" *ngIf="showError('name', 'required')">Name is required.</span>
               <span class="auth-help auth-help-error" *ngIf="showError('name', 'minlength')">Name must be at least 2 characters.</span>
             </label>
+
             <label class="auth-field" [class.has-error]="showError('email', 'required') || showError('email', 'email')">
               <span class="auth-label">Email</span>
               <input class="auth-input" type="email" formControlName="email" placeholder="name@company.com" />
               <span class="auth-help auth-help-error" *ngIf="showError('email', 'required')">Email is required.</span>
               <span class="auth-help auth-help-error" *ngIf="showError('email', 'email')">Enter a valid email address.</span>
             </label>
+
+            <label class="auth-field" [class.has-error]="showError('phone', 'pattern')">
+              <span class="auth-label">Phone Number</span>
+              <input class="auth-input" type="tel" formControlName="phone" placeholder="+91 9876543210" />
+              <span class="auth-help">Optional, but needed if you want SMS notifications.</span>
+              <span class="auth-help auth-help-error" *ngIf="showError('phone', 'pattern')">Enter a valid phone number.</span>
+            </label>
+
             <label class="auth-field" [class.has-error]="showError('password', 'required') || showError('password', 'minlength') || showError('password', 'pattern')">
               <span class="auth-label">Password</span>
               <input class="auth-input" type="password" formControlName="password" placeholder="Create a strong password" />
@@ -64,6 +73,7 @@ import { AuthService } from "../../core/services/auth.service";
                 Password must include uppercase, lowercase, and a number.
               </span>
             </label>
+
             <label class="auth-field">
               <span class="auth-label">Role</span>
               <div class="auth-select-wrap">
@@ -71,14 +81,17 @@ import { AuthService } from "../../core/services/auth.service";
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
                 </select>
-                <span class="auth-select-icon" aria-hidden="true">▾</span>
+                <span class="auth-select-icon" aria-hidden="true">â–¾</span>
               </div>
             </label>
+
             <div class="inline-tips">
               <div class="mini-tip"><mat-icon>admin_panel_settings</mat-icon><span>Admin can manage workflows.</span></div>
               <div class="mini-tip"><mat-icon>person</mat-icon><span>User is better for assignees and contributors.</span></div>
             </div>
+
             <div class="form-error" *ngIf="submitError">{{ submitError }}</div>
+
             <div class="auth-actions">
               <button type="submit" class="primary-action" [disabled]="isSubmitting || form.invalid">
                 {{ isSubmitting ? 'Registering...' : 'Create account' }}
@@ -93,6 +106,7 @@ import { AuthService } from "../../core/services/auth.service";
 })
 export class RegisterComponent {
   private static readonly passwordPattern = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).+$/;
+  private static readonly phonePattern = /^[0-9+\-\s()]{10,20}$/;
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
@@ -102,6 +116,7 @@ export class RegisterComponent {
   readonly form = this.fb.group({
     name: ["", [Validators.required, Validators.minLength(2)]],
     email: ["", [Validators.required, Validators.email]],
+    phone: ["", [Validators.pattern(RegisterComponent.phonePattern)]],
     password: [
       "",
       [Validators.required, Validators.minLength(8), Validators.pattern(RegisterComponent.passwordPattern)]
@@ -109,7 +124,7 @@ export class RegisterComponent {
     role: ["user" as "admin" | "user", [Validators.required]]
   });
 
-  showError(controlName: "name" | "email" | "password" | "role", errorCode: string) {
+  showError(controlName: "name" | "email" | "phone" | "password" | "role", errorCode: string) {
     const control = this.form.get(controlName);
     return !!control && control.touched && control.hasError(errorCode);
   }
@@ -122,8 +137,16 @@ export class RegisterComponent {
     }
 
     this.isSubmitting = true;
+    const { name, email, phone, password, role } = this.form.getRawValue();
+
     this.authService
-      .register(this.form.getRawValue() as { name: string; email: string; password: string; role: "admin" | "user" })
+      .register({
+        name: name ?? "",
+        email: email ?? "",
+        password: password ?? "",
+        role: (role ?? "user") as "admin" | "user",
+        ...(phone?.trim() ? { phone: phone.trim() } : {})
+      })
       .pipe(finalize(() => (this.isSubmitting = false)))
       .subscribe({
         next: () => this.router.navigateByUrl("/dashboard"),
