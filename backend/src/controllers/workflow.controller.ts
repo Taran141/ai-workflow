@@ -35,7 +35,7 @@ export class WorkflowController {
   }
 
   async update(req: Request, res: Response) {
-    const workflow = await workflowService.update(req.params.id as string, req.body);
+    const workflow = await workflowService.update(req.params.id as string, req.body, req.user!.userId);
     res.status(StatusCodes.OK).json(workflow);
   }
 

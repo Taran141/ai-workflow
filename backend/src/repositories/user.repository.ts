@@ -12,5 +12,8 @@ export class UserRepository {
   findById(id: string) {
     return UserModel.findById(id);
   }
-}
 
+  findManyByIds(ids: string[]) {
+    return UserModel.find({ _id: { $in: ids } });
+  }
+}

@@ -26,7 +26,12 @@ export class WorkflowService {
       stages: payload.stages ?? [{ name: "Backlog", order: 1 }],
       participants: payload.participants ?? [payload.createdBy]
     });
-    eventBus.emit(DomainEvents.WORKFLOW_CREATED, { workflowId: workflow._id, actorId: payload.createdBy });
+    eventBus.emit(DomainEvents.WORKFLOW_CREATED, {
+      workflowId: workflow._id,
+      actorId: payload.createdBy,
+      title: workflow.title,
+      participants: workflow.participants.map((participant) => participant.toString())
+    });
     return workflow;
   }
 
@@ -66,7 +71,13 @@ export class WorkflowService {
     );
 
     await Promise.all(tasksToCreate.map((task: TaskCreateInput) => this.taskRepository.create(task)));
-    eventBus.emit(DomainEvents.AI_WORKFLOW_GENERATED, { workflowId: workflow._id, actorId, prompt });
+    eventBus.emit(DomainEvents.AI_WORKFLOW_GENERATED, {
+      workflowId: workflow._id,
+      actorId,
+      prompt,
+      title: workflow.title,
+      participants: workflow.participants.map((participant) => participant.toString())
+    });
     return workflow;
   }
 
@@ -101,8 +112,29 @@ export class WorkflowService {
     return { workflow, tasks };
   }
 
-  update(id: string, data: Record<string, unknown>) {
-    return this.workflowRepository.update(id, data);
+  async update(id: string, data: Record<string, unknown>, actorId: string) {
+    const existing = await this.workflowRepository.findById(id);
+    if (!existing) {
+      throw new AppError(StatusCodes.NOT_FOUND, "Workflow not found");
+    }
+
+    const workflow = await this.workflowRepository.update(id, data);
+    if (!workflow) {
+      throw new AppError(StatusCodes.NOT_FOUND, "Workflow not found");
+    }
+
+    if (typeof data.status === "string" && data.status !== existing.status) {
+      eventBus.emit(DomainEvents.WORKFLOW_STATUS_UPDATED, {
+        workflowId: workflow._id,
+        actorId,
+        title: workflow.title,
+        status: workflow.status,
+        previousStatus: existing.status,
+        participants: workflow.participants.map((participant) => participant.toString())
+      });
+    }
+
+    return workflow;
   }
 
   delete(id: string) {

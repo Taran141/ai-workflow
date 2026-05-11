@@ -16,10 +16,21 @@ export class SocketGatewayService {
     this.io?.to(`user:${userId}`).emit(event, payload);
   }
 
+  emitNotificationCreated(userId: string, payload: unknown) {
+    this.emitToUser(userId, SocketEvents.NOTIFICATION_CREATED, payload);
+  }
+
+  emitNotificationRead(userId: string, payload: unknown) {
+    this.emitToUser(userId, SocketEvents.NOTIFICATION_READ, payload);
+  }
+
+  emitUnreadCount(userId: string, unreadCount: number) {
+    this.emitToUser(userId, SocketEvents.NOTIFICATION_UNREAD_COUNT, { unreadCount });
+  }
+
   broadcastActivity(payload: unknown) {
     this.io?.emit(SocketEvents.ACTIVITY_ADDED, payload);
   }
 }
 
 export const socketGateway = new SocketGatewayService();
-

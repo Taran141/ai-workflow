@@ -12,8 +12,12 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
   FRONTEND_URL: z.string().default("http://localhost:4200"),
-  REDIS_URL: z.string().optional()
+  REDIS_URL: z.string().optional(),
+  EMAIL_USER: z.string().email().optional(),
+  EMAIL_PASS: z.string().optional(),
+  TWILIO_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
-

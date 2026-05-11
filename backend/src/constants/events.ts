@@ -1,6 +1,8 @@
 export const DomainEvents = {
   WORKFLOW_CREATED: "WORKFLOW_CREATED",
   AI_WORKFLOW_GENERATED: "AI_WORKFLOW_GENERATED",
+  WORKFLOW_STATUS_UPDATED: "WORKFLOW_STATUS_UPDATED",
+  TASK_ASSIGNED: "TASK_ASSIGNED",
   TASK_COMPLETED: "TASK_COMPLETED",
   TASK_UPDATED: "TASK_UPDATED",
   NOTIFICATION_CREATED: "NOTIFICATION_CREATED",
@@ -11,8 +13,9 @@ export const SocketEvents = {
   WORKFLOW_CREATED: "workflow-created",
   TASK_UPDATED: "task-updated",
   NOTIFICATION_CREATED: "notification-created",
+  NOTIFICATION_READ: "notification-read",
+  NOTIFICATION_UNREAD_COUNT: "notification-unread-count",
   ACTIVITY_ADDED: "activity-added",
   WORKFLOW_JOIN: "workflow:join",
   WORKFLOW_LEAVE: "workflow:leave"
 } as const;
-

@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from "@angular/core";
 import { FormBuilder } from "@angular/forms";
 import { Router } from "@angular/router";
+import { finalize } from "rxjs";
 import { ApiService } from "../../core/services/api.service";
 import { WorkflowStoreService } from "../../core/services/workflow-store.service";
 import { Workflow } from "../../core/models/workflow.models";
@@ -96,7 +97,10 @@ export class WorkflowListComponent implements OnInit {
     };
 
     this.workflowStore.addOptimistic(optimisticWorkflow);
-    this.api.post<Workflow>("/workflows/generate", { prompt }).subscribe(() => this.workflowStore.refresh());
+    this.api
+      .post<Workflow>("/workflows/generate", { prompt })
+      .pipe(finalize(() => this.workflowStore.refresh()))
+      .subscribe();
   }
 
   onSearch(value: string) {

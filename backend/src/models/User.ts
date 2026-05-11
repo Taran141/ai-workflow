@@ -7,7 +7,19 @@ export interface UserDocument {
   name: string;
   email: string;
   password: string;
+  phone?: string;
   role: Role;
+  notificationPreferences?: {
+    email: {
+      workflowCreated: boolean;
+      taskAssigned: boolean;
+      taskCompleted: boolean;
+    };
+    sms: {
+      taskAssigned: boolean;
+      workflowStatusUpdated: boolean;
+    };
+  };
   comparePassword(candidate: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -18,7 +30,19 @@ const userSchema = new Schema<UserDocument>(
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, index: true, lowercase: true },
     password: { type: String, required: true, minlength: 8, select: false },
-    role: { type: String, enum: ["admin", "user"], default: "user", index: true }
+    phone: { type: String, trim: true },
+    role: { type: String, enum: ["admin", "user"], default: "user", index: true },
+    notificationPreferences: {
+      email: {
+        workflowCreated: { type: Boolean, default: true },
+        taskAssigned: { type: Boolean, default: true },
+        taskCompleted: { type: Boolean, default: true }
+      },
+      sms: {
+        taskAssigned: { type: Boolean, default: false },
+        workflowStatusUpdated: { type: Boolean, default: false }
+      }
+    }
   },
   { timestamps: true }
 );
@@ -36,4 +60,3 @@ userSchema.methods.comparePassword = function comparePassword(candidate: string)
 };
 
 export const UserModel = model<UserDocument>("User", userSchema);
-

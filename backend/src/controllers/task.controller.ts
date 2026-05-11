@@ -16,7 +16,7 @@ export class TaskController {
   }
 
   async create(req: Request, res: Response) {
-    const task = await taskService.create(req.body);
+    const task = await taskService.create({ ...req.body, createdBy: req.user!.userId });
     res.status(StatusCodes.CREATED).json(task);
   }
 

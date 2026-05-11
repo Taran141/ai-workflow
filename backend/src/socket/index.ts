@@ -2,10 +2,12 @@ import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { env } from "../config/env";
 import { SocketEvents } from "../constants/events";
+import { NotificationService } from "../services/notification.service";
 import { TokenService } from "../services/token.service";
 import { socketGateway } from "../services/socketGateway.service";
 
 const tokenService = new TokenService();
+const notificationService = new NotificationService();
 
 export const createSocketServer = (server: HttpServer) => {
   const io = new Server(server, {
@@ -26,9 +28,15 @@ export const createSocketServer = (server: HttpServer) => {
     }
   });
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const user = socket.data.user as Express.UserPayload;
     socket.join(`user:${user.userId}`);
+    try {
+      const { unreadCount } = await notificationService.getUnreadCount(user.userId);
+      socket.emit(SocketEvents.NOTIFICATION_UNREAD_COUNT, { unreadCount });
+    } catch {
+      socket.emit(SocketEvents.NOTIFICATION_UNREAD_COUNT, { unreadCount: 0 });
+    }
 
     socket.on(SocketEvents.WORKFLOW_JOIN, (workflowId: string) => socket.join(`workflow:${workflowId}`));
     socket.on(SocketEvents.WORKFLOW_LEAVE, (workflowId: string) => socket.leave(`workflow:${workflowId}`));
@@ -37,4 +45,3 @@ export const createSocketServer = (server: HttpServer) => {
   socketGateway.attach(io);
   return io;
 };
-
