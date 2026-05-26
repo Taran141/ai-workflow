@@ -25,16 +25,12 @@ export class TaskService {
     const eventPayload = {
       taskId: task._id,
       workflowId: task.workflowId.toString(),
-      actorId: payload.createdBy as string | undefined,
+      actorId: task.createdBy?.toString() ?? (payload.createdBy as string | undefined),
       assignedTo: task.assignedTo?.toString(),
       title: task.title
     };
 
-    if (task.assignedTo) {
-      eventBus.emit(DomainEvents.TASK_ASSIGNED, eventPayload);
-    } else {
-      eventBus.emit(DomainEvents.TASK_UPDATED, eventPayload);
-    }
+    eventBus.emit(DomainEvents.TASK_CREATED, eventPayload);
 
     return task;
   }

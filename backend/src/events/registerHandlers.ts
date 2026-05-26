@@ -21,6 +21,12 @@ const userRepository = new UserRepository();
 
 type NotificationType = "WORKFLOW_CREATED" | "AI_WORKFLOW_GENERATED" | "WORKFLOW_STATUS_UPDATED" | "TASK_ASSIGNED" | "TASK_COMPLETED";
 
+type ActivityActorSnapshot = {
+  actorId?: string;
+  actorName?: string;
+  actorRole?: string;
+};
+
 const unique = (values: Array<string | undefined>) => [...new Set(values.filter((value): value is string => Boolean(value)))];
 
 const canSendEmail = (user: UserDocument, preference: "workflowCreated" | "taskAssigned" | "taskCompleted") =>
@@ -159,13 +165,44 @@ const getUsers = async (userIds: string[]) => {
   return userRepository.findManyByIds(userIds);
 };
 
+const getActorSnapshot = async (actorId?: string): Promise<ActivityActorSnapshot> => {
+  if (!actorId) {
+    return {};
+  }
+
+  const actor = await userRepository.findById(actorId);
+  return {
+    actorId,
+    actorName: actor?.name ?? "Unknown user",
+    actorRole: actor?.role
+  };
+};
+
+const getTaskManagerRecipients = async ({
+  taskCreatorId,
+  workflowCreatorId,
+  actorId
+}: {
+  taskCreatorId?: string;
+  workflowCreatorId?: string;
+  actorId?: string;
+}) => {
+  const recipientIds = unique([taskCreatorId, workflowCreatorId]).filter((userId) => userId !== actorId);
+  return getUsers(recipientIds);
+};
+
 export const registerEventHandlers = () => {
   eventBus.on(DomainEvents.WORKFLOW_CREATED, async ({ workflowId, actorId, title, participants }) => {
+    const actorSnapshot = await getActorSnapshot(actorId ? String(actorId) : undefined);
     const activity = await activityService.create({
       actorId,
       action: "WORKFLOW_CREATED",
       entityType: "workflow",
-      entityId: workflowId
+      entityId: workflowId,
+      metadata: {
+        workflowTitle: title,
+        ...actorSnapshot
+      }
     });
 
     const workflow = await workflowRepository.findById(String(workflowId));
@@ -184,16 +221,21 @@ export const registerEventHandlers = () => {
     });
 
     socketGateway.emitToWorkflow(String(workflowId), SocketEvents.WORKFLOW_CREATED, { workflowId, actorId });
-    socketGateway.broadcastActivity(activity);
+    socketGateway.broadcastActivity(await activityService.enrichItem(activity.toObject()));
   });
 
   eventBus.on(DomainEvents.AI_WORKFLOW_GENERATED, async ({ workflowId, actorId, prompt, title, participants }) => {
+    const actorSnapshot = await getActorSnapshot(actorId ? String(actorId) : undefined);
     const activity = await activityService.create({
       actorId,
       action: "AI_WORKFLOW_GENERATED",
       entityType: "workflow",
       entityId: workflowId,
-      metadata: { prompt }
+      metadata: {
+        prompt,
+        workflowTitle: title,
+        ...actorSnapshot
+      }
     });
 
     const workflow = await workflowRepository.findById(String(workflowId));
@@ -212,16 +254,22 @@ export const registerEventHandlers = () => {
     });
 
     socketGateway.emitToWorkflow(String(workflowId), SocketEvents.WORKFLOW_CREATED, { workflowId, actorId, prompt });
-    socketGateway.broadcastActivity(activity);
+    socketGateway.broadcastActivity(await activityService.enrichItem(activity.toObject()));
   });
 
   eventBus.on(DomainEvents.WORKFLOW_STATUS_UPDATED, async ({ workflowId, actorId, status, previousStatus, title, participants }) => {
+    const actorSnapshot = await getActorSnapshot(actorId ? String(actorId) : undefined);
     const activity = await activityService.create({
       actorId,
       action: "WORKFLOW_STATUS_UPDATED",
       entityType: "workflow",
       entityId: workflowId,
-      metadata: { status, previousStatus }
+      metadata: {
+        status,
+        previousStatus,
+        workflowTitle: title,
+        ...actorSnapshot
+      }
     });
 
     const workflow = await workflowRepository.findById(String(workflowId));
@@ -237,28 +285,104 @@ export const registerEventHandlers = () => {
       smsPreference: "workflowStatusUpdated"
     });
 
-    socketGateway.broadcastActivity(activity);
+    socketGateway.broadcastActivity(await activityService.enrichItem(activity.toObject()));
   });
 
-  eventBus.on(DomainEvents.TASK_ASSIGNED, async ({ taskId, workflowId, actorId, assignedTo, title }) => {
+  eventBus.on(DomainEvents.TASK_CREATED, async ({ taskId, workflowId, actorId, assignedTo, title }) => {
+    const [actorSnapshot, workflow, actor, assignee, task] = await Promise.all([
+      getActorSnapshot(actorId ? String(actorId) : undefined),
+      workflowRepository.findById(String(workflowId)),
+      actorId ? userRepository.findById(String(actorId)) : Promise.resolve(null),
+      assignedTo ? userRepository.findById(String(assignedTo)) : Promise.resolve(null),
+      taskRepository.findById(String(taskId))
+    ]);
+
+    const activity = await activityService.create({
+      actorId,
+      action: "TASK_CREATED",
+      entityType: "task",
+      entityId: taskId,
+      metadata: {
+        taskTitle: title,
+        workflowId,
+        workflowTitle: workflow?.title,
+        assignedTo,
+        assignedToName: assignee?.name,
+        assignedToRole: assignee?.role,
+        taskCreatorId: task?.createdBy?.toString(),
+        ...actorSnapshot
+      }
+    });
+
+    if (assignee) {
+      await fanOutNotification({
+        recipients: [assignee],
+        title: `Task assigned: ${String(title ?? "Task")}`,
+        message: "A task has been assigned to you.",
+        type: "TASK_ASSIGNED",
+        metadata: { taskId, workflowId, assignedTo },
+        emailPreference: "taskAssigned",
+        smsPreference: "taskAssigned",
+        actorName: actor?.name
+      });
+
+      const managerRecipients = await getTaskManagerRecipients({
+        taskCreatorId: task?.createdBy?.toString(),
+        workflowCreatorId: workflow?.createdBy?.toString(),
+        actorId: actorId ? String(actorId) : undefined
+      });
+
+      if (managerRecipients.length) {
+        await fanOutNotification({
+          recipients: managerRecipients,
+          title: `Task assigned by ${actor?.name ?? "a teammate"}: ${String(title ?? "Task")}`,
+          message: `${actor?.name ?? "A teammate"} assigned "${String(title ?? "Task")}" to ${assignee.name}.`,
+          type: "TASK_ASSIGNED",
+          metadata: { taskId, workflowId, assignedTo, assignedBy: actorId },
+          emailPreference: "taskAssigned",
+          actorName: actor?.name
+        });
+      }
+    }
+
+    socketGateway.emitToWorkflow(String(workflowId), SocketEvents.TASK_UPDATED, { taskId, workflowId, assignedTo });
+    socketGateway.broadcastActivity(await activityService.enrichItem(activity.toObject()));
+  });
+
+  eventBus.on(DomainEvents.TASK_ASSIGNED, async ({ taskId, workflowId, actorId, assignedTo, previousAssignedTo, title }) => {
+    const [actorSnapshot, workflow, task, actor, assignee, previousAssignee] = await Promise.all([
+      getActorSnapshot(actorId ? String(actorId) : undefined),
+      workflowRepository.findById(String(workflowId)),
+      taskRepository.findById(String(taskId)),
+      actorId ? userRepository.findById(String(actorId)) : Promise.resolve(null),
+      assignedTo ? userRepository.findById(String(assignedTo)) : Promise.resolve(null),
+      previousAssignedTo ? userRepository.findById(String(previousAssignedTo)) : Promise.resolve(null)
+    ]);
+
     const activity = await activityService.create({
       actorId,
       action: "TASK_ASSIGNED",
       entityType: "task",
       entityId: taskId,
-      metadata: { assignedTo }
+      metadata: {
+        taskTitle: title ?? task?.title,
+        workflowId,
+        workflowTitle: workflow?.title,
+        assignedTo,
+        assignedToName: assignee?.name,
+        assignedToRole: assignee?.role,
+        previousAssignedTo,
+        previousAssignedToName: previousAssignee?.name,
+        previousAssignedToRole: previousAssignee?.role,
+        taskCreatorId: task?.createdBy?.toString(),
+        ...actorSnapshot
+      }
     });
 
     if (!assignedTo) {
-      socketGateway.broadcastActivity(activity);
+      socketGateway.broadcastActivity(await activityService.enrichItem(activity.toObject()));
       return;
     }
-
-    const [task, actor, assignee] = await Promise.all([
-      taskRepository.findById(String(taskId)),
-      actorId ? userRepository.findById(String(actorId)) : Promise.resolve(null),
-      userRepository.findById(String(assignedTo))
-    ]);
 
     if (assignee) {
       await fanOutNotification({
@@ -273,8 +397,32 @@ export const registerEventHandlers = () => {
       });
     }
 
+    const managerRecipients = await getTaskManagerRecipients({
+      taskCreatorId: task?.createdBy?.toString(),
+      workflowCreatorId: workflow?.createdBy?.toString(),
+      actorId: actorId ? String(actorId) : undefined
+    });
+
+    if (managerRecipients.length) {
+      await fanOutNotification({
+        recipients: managerRecipients,
+        title: `Task reassigned by ${actor?.name ?? "a teammate"}: ${String(title ?? task?.title ?? "Task")}`,
+        message: `${actor?.name ?? "A teammate"} assigned "${String(title ?? task?.title ?? "Task")}" to ${assignee?.name ?? "a teammate"}.`,
+        type: "TASK_ASSIGNED",
+        metadata: {
+          taskId,
+          workflowId,
+          assignedTo,
+          previousAssignedTo,
+          assignedBy: actorId
+        },
+        emailPreference: "taskAssigned",
+        actorName: actor?.name
+      });
+    }
+
     socketGateway.emitToWorkflow(String(workflowId), SocketEvents.TASK_UPDATED, { taskId, workflowId, assignedTo });
-    socketGateway.broadcastActivity(activity);
+    socketGateway.broadcastActivity(await activityService.enrichItem(activity.toObject()));
   });
 
   eventBus.on(DomainEvents.TASK_UPDATED, async ({ taskId, workflowId, assignedTo }) => {
@@ -282,20 +430,31 @@ export const registerEventHandlers = () => {
   });
 
   eventBus.on(DomainEvents.TASK_COMPLETED, async ({ taskId, workflowId, actorId, assignedTo, title }) => {
+    const [actorSnapshot, workflow, actor] = await Promise.all([
+      getActorSnapshot(actorId ? String(actorId) : undefined),
+      workflowRepository.findById(String(workflowId)),
+      actorId ? userRepository.findById(String(actorId)) : Promise.resolve(null)
+    ]);
+
     const activity = await activityService.create({
       actorId,
       action: "TASK_COMPLETED",
       entityType: "task",
-      entityId: taskId
+      entityId: taskId,
+      metadata: {
+        taskTitle: title,
+        workflowId,
+        workflowTitle: workflow?.title,
+        assignedTo,
+        ...actorSnapshot
+      }
     });
 
-    const workflow = await workflowRepository.findById(String(workflowId));
     const recipientIds = unique([
       assignedTo as string | undefined,
       ...(workflow?.participants.map((participant) => participant.toString()) ?? [])
     ]).filter((userId) => userId !== String(actorId));
     const recipients = await getUsers(recipientIds);
-    const actor = actorId ? await userRepository.findById(String(actorId)) : null;
 
     await fanOutNotification({
       recipients,
@@ -308,6 +467,6 @@ export const registerEventHandlers = () => {
     });
 
     socketGateway.emitToWorkflow(String(workflowId), SocketEvents.TASK_UPDATED, { taskId, workflowId, status: "done" });
-    socketGateway.broadcastActivity(activity);
+    socketGateway.broadcastActivity(await activityService.enrichItem(activity.toObject()));
   });
 };

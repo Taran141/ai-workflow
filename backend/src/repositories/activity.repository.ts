@@ -7,11 +7,10 @@ export class ActivityRepository {
   }
 
   findMany(filter: FilterQuery<ActivityLogDocument>, skip: number, limit: number) {
-    return ActivityLogModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    return ActivityLogModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
   }
 
   count(filter: FilterQuery<ActivityLogDocument>) {
     return ActivityLogModel.countDocuments(filter);
   }
 }
-

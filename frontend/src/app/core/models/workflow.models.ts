@@ -11,8 +11,11 @@ export interface Workflow {
 export interface Task {
   _id: string;
   title: string;
+  description?: string;
   workflowId: string;
+  createdBy?: string;
   stageName: string;
+  assignedTo?: string;
   status: "todo" | "in_progress" | "done";
   priority: "low" | "medium" | "high";
   deadline?: string;
@@ -29,9 +32,27 @@ export interface NotificationItem {
 
 export interface ActivityItem {
   _id: string;
+  actorId?: string;
   action: string;
   entityType: string;
   entityId: string;
+  metadata?: {
+    actorId?: string;
+    actorName?: string;
+    actorRole?: string;
+    workflowId?: string;
+    workflowTitle?: string;
+    taskCreatorId?: string;
+    taskTitle?: string;
+    assignedTo?: string;
+    assignedToName?: string;
+    assignedToRole?: string;
+    previousAssignedTo?: string;
+    previousAssignedToName?: string;
+    previousAssignedToRole?: string;
+    status?: string;
+    previousStatus?: string;
+    prompt?: string;
+  };
   createdAt: string;
 }
-

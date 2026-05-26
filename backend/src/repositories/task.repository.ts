@@ -10,6 +10,10 @@ export class TaskRepository {
     return TaskModel.findById(id);
   }
 
+  findManyByIds(ids: string[]) {
+    return TaskModel.find({ _id: { $in: ids } });
+  }
+
   findByWorkflowId(workflowId: string) {
     return TaskModel.find({ workflowId }).sort({ createdAt: 1 });
   }
@@ -30,4 +34,3 @@ export class TaskRepository {
     return TaskModel.findByIdAndDelete(id);
   }
 }
-

@@ -10,6 +10,10 @@ export class WorkflowRepository {
     return WorkflowModel.findById(id);
   }
 
+  findManyByIds(ids: string[]) {
+    return WorkflowModel.find({ _id: { $in: ids } });
+  }
+
   findMany(filter: FilterQuery<WorkflowDocument>, skip: number, limit: number, sort: Record<string, 1 | -1>) {
     return WorkflowModel.find(filter).sort(sort).skip(skip).limit(limit);
   }
@@ -26,4 +30,3 @@ export class WorkflowRepository {
     return WorkflowModel.findByIdAndDelete(id);
   }
 }
-

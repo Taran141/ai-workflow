@@ -5,6 +5,10 @@ export class UserRepository {
     return UserModel.create(data);
   }
 
+  findMany() {
+    return UserModel.find().sort({ name: 1 });
+  }
+
   findByEmail(email: string) {
     return UserModel.findOne({ email }).select("+password");
   }
