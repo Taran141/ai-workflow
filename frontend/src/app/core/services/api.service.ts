@@ -7,7 +7,7 @@ import { appConfig } from "../config/app-config";
 export class ApiService {
   constructor(private readonly http: HttpClient) {}
 
-  get<T>(path: string, query?: Record<string, string | number | undefined>): Observable<T> {
+  get<T>(path: string, query?: Record<string, string | number | boolean | undefined>): Observable<T> {
     let params = new HttpParams();
     Object.entries(query ?? {}).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -29,4 +29,3 @@ export class ApiService {
     return this.http.delete<T>(`${appConfig.apiBaseUrl}${path}`);
   }
 }
-

@@ -12,6 +12,7 @@ interface ActivityResponse {
 export class ActivityStoreService {
   private readonly activitiesSubject = new BehaviorSubject<ActivityItem[]>([]);
   readonly activities$ = this.activitiesSubject.asObservable();
+  private currentQuery: { entityType?: string; entityId?: string } = {};
 
   constructor(private readonly api: ApiService, private readonly socket: SocketService) {
     this.socket.on<ActivityItem>("activity-added").subscribe((item) => {
@@ -19,10 +20,15 @@ export class ActivityStoreService {
     });
   }
 
-  load() {
-    this.api.get<ActivityResponse>("/activity-logs", { page: 1, limit: 10 }).subscribe((response) => {
+  load(query?: { entityType?: string; entityId?: string }) {
+    this.currentQuery = { ...this.currentQuery, ...query };
+    this.api.get<ActivityResponse>("/activity-logs", {
+      page: 1,
+      limit: 20,
+      entityType: this.currentQuery.entityType,
+      entityId: this.currentQuery.entityId
+    }).subscribe((response) => {
       this.activitiesSubject.next(response.items);
     });
   }
 }
-

@@ -36,9 +36,15 @@ export class WorkflowService {
   }
 
   async generateFromPrompt(prompt: string, actorId: string) {
-    type GeneratedTask = { title: string; priority: "low" | "medium" | "high"; daysFromNow: number };
+    type GeneratedTask = {
+      title: string;
+      description?: string;
+      priority: "low" | "medium" | "high";
+      daysFromNow: number;
+    };
     type TaskCreateInput = {
       title: string;
+      description?: string;
       workflowId: string;
       stageName: string;
       priority: "low" | "medium" | "high";
@@ -62,7 +68,8 @@ export class WorkflowService {
     const tasksToCreate: TaskCreateInput[] = generated.stages.flatMap(
       (stage: { name: string; tasks: GeneratedTask[] }) =>
         stage.tasks.map((task: GeneratedTask) => ({
-          title: task.title,
+          title: this.toTaskHeading(task.title),
+          description: this.toTaskDescription(task),
           workflowId: workflow._id.toString(),
           stageName: stage.name,
           priority: task.priority,
@@ -139,5 +146,26 @@ export class WorkflowService {
 
   delete(id: string) {
     return this.workflowRepository.delete(id);
+  }
+
+  private toTaskHeading(value: string) {
+    const cleaned = value.replace(/\s+/g, " ").trim();
+    const withoutTrailingPunctuation = cleaned.replace(/[.?!,:;]+$/, "");
+    const words = withoutTrailingPunctuation.split(" ").filter(Boolean);
+    if (words.length <= 6) {
+      return withoutTrailingPunctuation;
+    }
+
+    return `${words.slice(0, 6).join(" ")}`;
+  }
+
+  private toTaskDescription(task: { title: string; description?: string }) {
+    const description = task.description?.trim();
+    if (description) {
+      return description;
+    }
+
+    const cleanedTitle = task.title.replace(/\s+/g, " ").trim();
+    return cleanedTitle.endsWith(".") ? cleanedTitle : `${cleanedTitle}.`;
   }
 }

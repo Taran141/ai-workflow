@@ -36,6 +36,10 @@ import { AuthStateService } from "../../core/services/auth-state.service";
             <mat-icon>notifications</mat-icon>
             <span>Notifications</span>
           </a>
+          <a routerLink="/users" routerLinkActive="active" class="nav-link">
+            <mat-icon>group</mat-icon>
+            <span>People</span>
+          </a>
           <a routerLink="/activity" routerLinkActive="active" class="nav-link">
             <mat-icon>history</mat-icon>
             <span>Activity Logs</span>

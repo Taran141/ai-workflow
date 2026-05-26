@@ -8,11 +8,33 @@ import { ActivityStoreService } from "../../core/services/activity-store.service
     <div class="page-header">
       <div>
         <h1 class="page-title">Activity Logs</h1>
-        <p class="page-subtitle">Immutable audit view for workflow creation, task changes, and automation signals.</p>
+        <p class="page-subtitle">Filter the audit trail when you need to inspect one workflow, one task, or one type of event.</p>
       </div>
     </div>
 
     <div class="surface-card panel">
+      <div class="panel-heading">
+        <div>
+          <h3>Audit stream</h3>
+          <p>Use entity filters to narrow the feed instead of scanning the whole workspace timeline.</p>
+        </div>
+      </div>
+
+      <div class="toolbar-actions workflow-filter-bar">
+        <label class="auth-field compact-field">
+          <span class="auth-label">Entity type</span>
+          <select class="auth-input auth-select" (change)="applyEntityType($any($event.target).value)">
+            <option value="">All</option>
+            <option value="workflow">Workflow</option>
+            <option value="task">Task</option>
+          </select>
+        </label>
+        <label class="auth-field search-input workflow-search-field">
+          <span class="auth-label">Entity ID</span>
+          <input class="auth-input" type="text" placeholder="Paste a workflow or task id" (input)="applyEntityId($any($event.target).value)" />
+        </label>
+      </div>
+
       <div class="timeline-item" *ngFor="let item of activities$ | async">
         <strong>{{ describeActivity(item) }}</strong>
         <div>{{ describeActivityContext(item) }}</div>
@@ -27,6 +49,14 @@ export class ActivityComponent implements OnInit {
 
   ngOnInit() {
     this.activityStore.load();
+  }
+
+  applyEntityType(entityType: string) {
+    this.activityStore.load({ entityType: entityType || undefined });
+  }
+
+  applyEntityId(entityId: string) {
+    this.activityStore.load({ entityId: entityId || undefined });
   }
 
   describeActivity(activity: ActivityItem) {

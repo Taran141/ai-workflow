@@ -27,7 +27,8 @@ The response format must be:
       "order": number,
       "tasks": [
         {
-          "title": "string",
+          "title": "short heading, 2 to 6 words",
+          "description": "one or two sentence explanation of the task",
           "priority": "LOW | MEDIUM | HIGH",
           "daysFromNow": number
         }

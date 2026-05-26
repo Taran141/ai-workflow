@@ -95,7 +95,7 @@ export class DashboardComponent implements OnInit {
     this.notificationStore.load();
     this.activityStore.load();
     this.notificationStore.notifications$.subscribe((items) => {
-      this.unreadCount = items.filter((item) => !item.read).length;
+      this.unreadCount = items.filter((item) => !item.isRead).length;
     });
   }
 

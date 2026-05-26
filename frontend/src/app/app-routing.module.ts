@@ -26,6 +26,10 @@ const routes: Routes = [
         loadChildren: () => import("./features/notifications/notifications.module").then((m) => m.NotificationsModule)
       },
       {
+        path: "users",
+        loadChildren: () => import("./features/users/users.module").then((m) => m.UsersModule)
+      },
+      {
         path: "activity",
         loadChildren: () => import("./features/activity/activity.module").then((m) => m.ActivityModule)
       },
@@ -40,4 +44,3 @@ const routes: Routes = [
   exports: [RouterModule]
 })
 export class AppRoutingModule {}
-
