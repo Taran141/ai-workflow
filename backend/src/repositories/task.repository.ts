@@ -1,9 +1,13 @@
-import { FilterQuery } from "mongoose";
+import { FilterQuery, UpdateQuery } from "mongoose";
 import { TaskDocument, TaskModel } from "../models/Task";
 
 export class TaskRepository {
   create(data: Partial<TaskDocument>) {
     return TaskModel.create(data);
+  }
+
+  createMany(data: Array<Partial<TaskDocument>>) {
+    return TaskModel.insertMany(data);
   }
 
   findById(id: string) {
@@ -26,11 +30,15 @@ export class TaskRepository {
     return TaskModel.countDocuments(filter);
   }
 
-  update(id: string, data: Partial<TaskDocument>) {
-    return TaskModel.findByIdAndUpdate(id, data, { new: true });
+  update(id: string, data: UpdateQuery<TaskDocument>) {
+    return TaskModel.findByIdAndUpdate(id, data, { new: true, runValidators: true });
   }
 
   delete(id: string) {
     return TaskModel.findByIdAndDelete(id);
+  }
+
+  deleteByWorkflowId(workflowId: string) {
+    return TaskModel.deleteMany({ workflowId });
   }
 }

@@ -1,7 +1,9 @@
 import { StatusCodes } from "http-status-codes";
+import { Types } from "mongoose";
 import { NotificationDocument } from "../models/Notification";
 import { NotificationRepository } from "../repositories/notification.repository";
 import { AppError } from "../utils/AppError";
+import { isDuplicateKeyError } from "../utils/mongo";
 import { buildPagination } from "../utils/pagination";
 import { socketGateway } from "./socketGateway.service";
 import { unreadCountCache } from "./unreadCountCache.service";
@@ -27,17 +29,32 @@ interface CreateNotificationInput {
   status?: NotificationDocument["status"];
   isRead?: boolean;
   metadata?: Record<string, unknown>;
+  /** Makes creation idempotent: a second call with the same key returns the existing notification. */
+  dedupeKey?: string;
 }
 
 export class NotificationService {
   constructor(private readonly notificationRepository = new NotificationRepository()) {}
 
   async create(payload: CreateNotificationInput) {
-    const notification = await this.notificationRepository.create({
-      ...payload,
-      status: payload.status ?? (payload.channel === "IN_APP" ? "SENT" : "PENDING"),
-      isRead: payload.isRead ?? false
-    });
+    const { dedupeKey } = payload;
+    if (dedupeKey) {
+      const existing = await this.notificationRepository.findByDedupeKey(dedupeKey);
+      if (existing) return existing;
+    }
+
+    let notification;
+    try {
+      notification = await this.notificationRepository.create({
+        ...payload,
+        status: payload.status ?? (payload.channel === "IN_APP" ? "SENT" : "PENDING"),
+        isRead: payload.isRead ?? false
+      });
+    } catch (error) {
+      const existing = dedupeKey && isDuplicateKeyError(error) ? await this.notificationRepository.findByDedupeKey(dedupeKey) : null;
+      if (existing) return existing;
+      throw error;
+    }
 
     if (notification.channel === "IN_APP" && !notification.isRead) {
       const unreadCount = await this.incrementUnreadCount(payload.userId);
@@ -112,6 +129,22 @@ export class NotificationService {
     }
 
     return deleted;
+  }
+
+  /** Removes every notification that points at a workflow (used when the workflow is deleted). */
+  async deleteForWorkflow(workflowId: string) {
+    // Older records stored the id as an ObjectId, newer ones as a string.
+    const filter = { "metadata.workflowId": { $in: [workflowId, new Types.ObjectId(workflowId)] } };
+    const affectedUserIds = await this.notificationRepository.findDistinctUserIds({ ...filter, channel: "IN_APP", isRead: false });
+    await this.notificationRepository.deleteMany(filter);
+
+    await Promise.all(
+      affectedUserIds.map(async (userId) => {
+        unreadCountCache.invalidate(userId);
+        const { unreadCount } = await this.getUnreadCount(userId);
+        socketGateway.emitUnreadCount(userId, unreadCount);
+      })
+    );
   }
 
   async markAsSent(notificationId: string, providerMessageId?: string) {

@@ -23,6 +23,18 @@ export interface Task {
   deadline?: string;
 }
 
+export interface TaskComment {
+  _id: string;
+  taskId: string;
+  workflowId: string;
+  authorId: string;
+  authorName: string;
+  authorRole?: "admin" | "user";
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface NotificationItem {
   _id: string;
   title: string;

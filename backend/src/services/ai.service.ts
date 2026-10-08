@@ -1,8 +1,12 @@
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { z } from "zod";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
 import { buildFallbackWorkflow } from "../utils/aiWorkflowFallback";
+
+const AI_REQUEST_TIMEOUT_MS = 30_000;
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 
 const workflowSystemPrompt = `
 You are an enterprise workflow automation engine.
@@ -29,7 +33,7 @@ The response format must be:
         {
           "title": "short heading, 2 to 6 words",
           "description": "one or two sentence explanation of the task",
-          "priority": "LOW | MEDIUM | HIGH",
+          "priority": "low | medium | high",
           "daysFromNow": number
         }
       ]
@@ -44,38 +48,93 @@ The response format must be:
 }
 `;
 
-export class AiService {
-  private readonly apiKey = env.OPENAI_API_KEY?.trim();
-  private readonly openAiClient = this.apiKey?.startsWith("sk-") ? new OpenAI({ apiKey: this.apiKey }) : undefined;
-  private readonly geminiClient = this.apiKey?.startsWith("AIza") ? new GoogleGenerativeAI(this.apiKey) : undefined;
+// Model output is untrusted: normalise what we can (e.g. "HIGH" -> "high") and reject what we can't.
+const generatedTaskSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000).optional().catch(undefined),
+  priority: z
+    .preprocess((value) => (typeof value === "string" ? value.trim().toLowerCase() : value), z.enum(["low", "medium", "high"]))
+    .catch("medium"),
+  daysFromNow: z.coerce
+    .number()
+    .catch(3)
+    .transform((days) => (Number.isFinite(days) ? Math.min(365, Math.max(0, Math.round(days))) : 3))
+});
 
-  async generateWorkflow(prompt: string) {
-    if (!this.apiKey) {
-      logger.warn("OPENAI_API_KEY is not configured. Using fallback workflow generator.");
-      return buildFallbackWorkflow(prompt);
+const generatedWorkflowSchema = z
+  .object({
+    title: z.string().trim().max(500).optional().catch(undefined),
+    description: z.string().trim().max(5000).optional().catch(undefined),
+    stages: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1).max(100),
+          order: z.coerce.number().catch(0),
+          tasks: z.array(generatedTaskSchema).max(25).default([])
+        })
+      )
+      .min(1)
+      .max(15),
+    automationRules: z
+      .array(z.object({ trigger: z.string().trim().min(1).max(200), action: z.string().trim().min(1).max(200) }))
+      .max(20)
+      .catch([])
+      .default([])
+  })
+  .transform((workflow) => ({
+    ...workflow,
+    stages: [...workflow.stages].sort((a, b) => a.order - b.order).map((stage, index) => ({ ...stage, order: index + 1 }))
+  }));
+
+export type GeneratedWorkflow = z.infer<typeof generatedWorkflowSchema>;
+
+const parseModelJson = (content: string) => JSON.parse(content.trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
+
+export class AiService {
+  private readonly openAiKey = env.OPENAI_API_KEY?.trim().startsWith("sk-") ? env.OPENAI_API_KEY.trim() : undefined;
+  // GEMINI_API_KEY is preferred; a Gemini key placed in OPENAI_API_KEY is still honoured for older .env files.
+  private readonly geminiKey =
+    env.GEMINI_API_KEY?.trim() || (env.OPENAI_API_KEY?.trim().startsWith("AIza") ? env.OPENAI_API_KEY.trim() : undefined);
+  private readonly geminiModel =
+    env.GEMINI_MODEL ?? (env.OPENAI_MODEL.startsWith("gpt-") ? DEFAULT_GEMINI_MODEL : env.OPENAI_MODEL);
+  private readonly openAiClient = this.openAiKey
+    ? new OpenAI({ apiKey: this.openAiKey, timeout: AI_REQUEST_TIMEOUT_MS, maxRetries: 1 })
+    : undefined;
+  private readonly geminiClient = this.geminiKey ? new GoogleGenerativeAI(this.geminiKey) : undefined;
+
+  async generateWorkflow(prompt: string): Promise<GeneratedWorkflow> {
+    const provider = this.openAiClient ? "openai" : this.geminiClient ? "gemini" : undefined;
+    if (!provider) {
+      logger.warn("No AI provider is configured (OPENAI_API_KEY / GEMINI_API_KEY). Using fallback workflow generator.");
+      return this.fallback(prompt);
     }
 
     try {
-      if (this.openAiClient) {
-        return await this.generateWithOpenAi(prompt);
+      const raw = provider === "openai" ? await this.generateWithOpenAi(prompt) : await this.generateWithGemini(prompt);
+      const parsed = generatedWorkflowSchema.safeParse(raw);
+      if (!parsed.success) {
+        logger.warn("AI workflow response did not match the expected shape. Using fallback workflow generator.", {
+          provider,
+          issues: parsed.error.issues.slice(0, 5)
+        });
+        return this.fallback(prompt);
       }
-
-      if (this.geminiClient) {
-        return await this.generateWithGemini(prompt);
-      }
-
-      logger.warn("OPENAI_API_KEY has an unrecognized format. Using fallback workflow generator.");
-      return buildFallbackWorkflow(prompt);
+      return parsed.data;
     } catch (error) {
       logger.warn("AI workflow generation failed. Falling back to deterministic workflow template.", {
-        provider: this.openAiClient ? "openai" : this.geminiClient ? "gemini" : "unknown",
+        provider,
+        model: provider === "openai" ? env.OPENAI_MODEL : this.geminiModel,
         error: error instanceof Error ? error.message : error
       });
-      return buildFallbackWorkflow(prompt);
+      return this.fallback(prompt);
     }
   }
 
-  private async generateWithOpenAi(prompt: string) {
+  private fallback(prompt: string) {
+    return generatedWorkflowSchema.parse(buildFallbackWorkflow(prompt));
+  }
+
+  private async generateWithOpenAi(prompt: string): Promise<unknown> {
     const response = await this.openAiClient!.chat.completions.create({
       model: env.OPENAI_MODEL,
       temperature: 0.3,
@@ -88,28 +147,28 @@ export class AiService {
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
-      return buildFallbackWorkflow(prompt);
+      throw new Error("OpenAI returned an empty response");
     }
-
-    return JSON.parse(content);
+    return parseModelJson(content);
   }
 
-  private async generateWithGemini(prompt: string) {
-    const modelName = env.OPENAI_MODEL.startsWith("gpt-") ? "gemini-1.5-flash" : env.OPENAI_MODEL;
-    const model = this.geminiClient!.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        temperature: 0.3,
-        responseMimeType: "application/json"
-      }
-    });
+  private async generateWithGemini(prompt: string): Promise<unknown> {
+    const model = this.geminiClient!.getGenerativeModel(
+      {
+        model: this.geminiModel,
+        generationConfig: {
+          temperature: 0.3,
+          responseMimeType: "application/json"
+        }
+      },
+      { timeout: AI_REQUEST_TIMEOUT_MS }
+    );
 
     const result = await model.generateContent(`${workflowSystemPrompt}\n\nUser prompt: ${prompt}`);
     const content = result.response.text();
     if (!content) {
-      return buildFallbackWorkflow(prompt);
+      throw new Error("Gemini returned an empty response");
     }
-
-    return JSON.parse(content);
+    return parseModelJson(content);
   }
 }

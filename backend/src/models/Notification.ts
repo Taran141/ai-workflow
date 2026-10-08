@@ -26,6 +26,7 @@ export interface NotificationDocument {
   attempts: number;
   lastAttemptAt?: Date;
   readAt?: Date;
+  dedupeKey?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,7 +45,9 @@ const notificationSchema = new Schema<NotificationDocument>(
     failureReason: { type: String },
     attempts: { type: Number, default: 0 },
     lastAttemptAt: { type: Date },
-    readAt: { type: Date }
+    readAt: { type: Date },
+    // Set by event handlers so a retried event never delivers the same notification twice.
+    dedupeKey: { type: String, unique: true, sparse: true, select: false }
   },
   { timestamps: true }
 );

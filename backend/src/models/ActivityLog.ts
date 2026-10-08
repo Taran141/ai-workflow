@@ -7,6 +7,7 @@ export interface ActivityLogDocument {
   entityType: string;
   entityId: string;
   metadata?: Record<string, unknown>;
+  dedupeKey?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,12 +18,14 @@ const activityLogSchema = new Schema<ActivityLogDocument>(
     action: { type: String, required: true, index: true },
     entityType: { type: String, required: true, index: true },
     entityId: { type: String, required: true, index: true },
-    metadata: { type: Schema.Types.Mixed }
+    metadata: { type: Schema.Types.Mixed },
+    dedupeKey: { type: String, unique: true, sparse: true, select: false }
   },
   { timestamps: true }
 );
 
 activityLogSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
+activityLogSchema.index({ "metadata.workflowId": 1, createdAt: -1 });
 
 export const ActivityLogModel = model<ActivityLogDocument>("ActivityLog", activityLogSchema);
 

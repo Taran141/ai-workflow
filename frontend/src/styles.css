@@ -814,6 +814,18 @@ body {
   gap: 20px;
 }
 
+.task-conversation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.task-list-column {
+  display: grid;
+  gap: 0;
+}
+
 .task-create-form {
   padding: 20px;
   border-radius: 22px;
@@ -845,6 +857,18 @@ body {
   gap: 18px;
 }
 
+.task-card-interactive {
+  padding-left: 6px;
+  padding-right: 6px;
+  border-radius: 18px;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.task-card-active {
+  background: rgba(37, 95, 82, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(37, 95, 82, 0.14);
+}
+
 .task-card:first-of-type {
   border-top: 0;
 }
@@ -874,6 +898,73 @@ body {
   display: grid;
   gap: 10px;
   color: var(--muted);
+}
+
+.task-chat-panel {
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+  position: sticky;
+  top: 24px;
+}
+
+.task-chat-panel-empty {
+  min-height: 280px;
+  align-content: center;
+}
+
+.task-chat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-chat-thread {
+  display: grid;
+  gap: 14px;
+  max-height: 540px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.task-comment-item {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.task-comment-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: linear-gradient(135deg, rgba(37, 95, 82, 0.18), rgba(207, 127, 53, 0.18));
+  color: var(--primary-strong);
+}
+
+.task-comment-body {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(37, 95, 82, 0.05);
+  border: 1px solid rgba(19, 33, 27, 0.08);
+  display: grid;
+  gap: 8px;
+}
+
+.task-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.task-comment-form {
+  border-top: 1px solid rgba(19, 33, 27, 0.08);
+  padding-top: 18px;
 }
 
 .workflow-generate-button {
@@ -964,6 +1055,10 @@ body {
   .task-card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .task-conversation-layout {
+    grid-template-columns: 1fr;
   }
 
   .workflow-generate-button,

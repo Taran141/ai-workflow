@@ -6,14 +6,15 @@ Base URL: `http://localhost:3000/api`
 
 ### POST `/auth/register`
 
-Registers a user.
+Registers a user. The role is chosen by the server: the first account becomes `admin`, every later account
+is a `user` (admins can promote people with `PATCH /users/:id/role`).
 
 ```json
 {
   "name": "Jane Doe",
   "email": "jane@example.com",
   "password": "Password@123",
-  "role": "user"
+  "phone": "+91 9876543210"
 }
 ```
 
@@ -83,6 +84,16 @@ Returns paginated notifications for the current user.
 ### PATCH `/notifications/:id/read`
 
 Marks a notification as read.
+
+## Users
+
+### GET `/users`
+
+Lists workspace members. Phone numbers are only included for admins and for your own account.
+
+### PATCH `/users/:id/role`
+
+Admin only. Body: `{ "role": "admin" | "user" }`. Admins cannot change their own role.
 
 ## Activity Logs
 

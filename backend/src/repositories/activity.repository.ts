@@ -6,6 +6,10 @@ export class ActivityRepository {
     return ActivityLogModel.create(data);
   }
 
+  findByDedupeKey(dedupeKey: string) {
+    return ActivityLogModel.findOne({ dedupeKey });
+  }
+
   findMany(filter: FilterQuery<ActivityLogDocument>, skip: number, limit: number) {
     return ActivityLogModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
   }

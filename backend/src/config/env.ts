@@ -11,6 +11,8 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("1d"),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().optional(),
   FRONTEND_URL: z.string().default("http://localhost:4200"),
   REDIS_URL: z.string().optional(),
   EMAIL_USER: z.string().email().optional(),

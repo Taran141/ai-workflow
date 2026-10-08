@@ -1,21 +1,25 @@
 import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
-import { TokenService } from "../services/token.service";
+import { AuthService } from "../services/auth.service";
 import { AppError } from "../utils/AppError";
 
-const tokenService = new TokenService();
+const authService = new AuthService();
 
-export const authenticate = (req: Request, _res: Response, next: NextFunction) => {
+export const authenticate = async (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     return next(new AppError(StatusCodes.UNAUTHORIZED, "Missing authorization token"));
   }
 
   try {
-    req.user = tokenService.verify(authHeader.replace("Bearer ", ""));
+    const user = await authService.resolveSession(authHeader.slice("Bearer ".length));
+    if (!user) {
+      return next(new AppError(StatusCodes.UNAUTHORIZED, "Invalid token"));
+    }
+    req.user = user;
     next();
-  } catch {
-    next(new AppError(StatusCodes.UNAUTHORIZED, "Invalid token"));
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -25,4 +29,3 @@ export const authorize = (...allowedRoles: string[]) => (req: Request, _res: Res
   }
   next();
 };
-

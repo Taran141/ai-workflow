@@ -2,25 +2,48 @@ import { ActivityRepository } from "../repositories/activity.repository";
 import { TaskRepository } from "../repositories/task.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { WorkflowRepository } from "../repositories/workflow.repository";
+import { isDuplicateKeyError } from "../utils/mongo";
 import { buildPagination } from "../utils/pagination";
+import { AccessService } from "./access.service";
 
 export class ActivityService {
   constructor(
     private readonly activityRepository = new ActivityRepository(),
     private readonly userRepository = new UserRepository(),
     private readonly taskRepository = new TaskRepository(),
-    private readonly workflowRepository = new WorkflowRepository()
+    private readonly workflowRepository = new WorkflowRepository(),
+    private readonly accessService = new AccessService()
   ) {}
 
-  create(payload: Record<string, unknown>) {
-    return this.activityRepository.create(payload);
+  /** Creates an activity entry; with a `dedupeKey`, repeated calls (e.g. a retried event) return the first entry. */
+  async create(payload: Record<string, unknown> & { dedupeKey?: string }) {
+    const { dedupeKey } = payload;
+    if (dedupeKey) {
+      const existing = await this.activityRepository.findByDedupeKey(dedupeKey);
+      if (existing) return existing;
+    }
+
+    try {
+      return await this.activityRepository.create(payload);
+    } catch (error) {
+      const existing = dedupeKey && isDuplicateKeyError(error) ? await this.activityRepository.findByDedupeKey(dedupeKey) : null;
+      if (existing) return existing;
+      throw error;
+    }
   }
 
-  async list(query: { entityType?: string; entityId?: string; page?: number; limit?: number }) {
+  async list(query: { actor: Express.UserPayload; entityType?: string; entityId?: string; page?: number; limit?: number }) {
     const { skip, page, limit } = buildPagination(query.page, query.limit);
     const filter: Record<string, unknown> = {};
     if (query.entityType) filter.entityType = query.entityType;
     if (query.entityId) filter.entityId = query.entityId;
+    const visibleWorkflowIds = await this.accessService.getVisibleWorkflowIds(query.actor);
+    if (visibleWorkflowIds) {
+      filter.$or = [
+        { "metadata.workflowId": { $in: visibleWorkflowIds } },
+        { entityType: "workflow", entityId: { $in: visibleWorkflowIds } }
+      ];
+    }
     const [items, total] = await Promise.all([
       this.activityRepository.findMany(filter, skip, limit),
       this.activityRepository.count(filter)

@@ -14,6 +14,10 @@ export const validate = (schema: ZodSchema) => (req: Request, res: Response, nex
       errors: result.error.flatten()
     });
   }
+
+  // Hand the parsed output to the controllers so unknown fields are stripped and defaults/transforms apply.
+  const data = result.data as { body?: unknown; query?: Request["query"] };
+  if (data.body !== undefined) req.body = data.body;
+  if (data.query !== undefined) req.query = data.query;
   next();
 };
-

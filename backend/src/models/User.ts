@@ -44,7 +44,16 @@ const userSchema = new Schema<UserDocument>(
       }
     }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      // Never serialize the password hash, even when a query explicitly selected it.
+      transform: (_doc, ret) => {
+        const { password: _password, __v: _version, ...safe } = ret;
+        return safe;
+      }
+    }
+  }
 );
 
 userSchema.pre("save", async function hashPassword(next) {

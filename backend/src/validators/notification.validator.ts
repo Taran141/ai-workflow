@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idParamsSchema } from "./common.validator";
 
 export const listNotificationSchema = z.object({
   query: z.object({
@@ -13,8 +14,4 @@ export const listNotificationSchema = z.object({
   })
 });
 
-export const notificationParamsSchema = z.object({
-  params: z.object({
-    id: z.string().min(1)
-  })
-});
+export const notificationParamsSchema = idParamsSchema;

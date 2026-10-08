@@ -2,11 +2,14 @@ import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { env } from "../config/env";
 import { SocketEvents } from "../constants/events";
+import { AccessService } from "../services/access.service";
+import { AuthService } from "../services/auth.service";
 import { NotificationService } from "../services/notification.service";
-import { TokenService } from "../services/token.service";
-import { socketGateway } from "../services/socketGateway.service";
+import { ADMIN_ROOM, socketGateway, userRoom, workflowRoom } from "../services/socketGateway.service";
+import { isObjectId } from "../utils/mongo";
 
-const tokenService = new TokenService();
+const authService = new AuthService();
+const accessService = new AccessService();
 const notificationService = new NotificationService();
 
 export const createSocketServer = (server: HttpServer) => {
@@ -17,10 +20,13 @@ export const createSocketServer = (server: HttpServer) => {
     }
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
-      const user = tokenService.verify(token);
+      const user = typeof token === "string" ? await authService.resolveSession(token) : null;
+      if (!user) {
+        return next(new Error("Unauthorized"));
+      }
       socket.data.user = user;
       next();
     } catch {
@@ -30,16 +36,35 @@ export const createSocketServer = (server: HttpServer) => {
 
   io.on("connection", async (socket) => {
     const user = socket.data.user as Express.UserPayload;
-    socket.join(`user:${user.userId}`);
+    socket.join(userRoom(user.userId));
+    if (user.role === "admin") {
+      socket.join(ADMIN_ROOM);
+    }
+
+    // Register listeners before any await so early client messages are not dropped.
+    socket.on(SocketEvents.WORKFLOW_JOIN, async (workflowId: unknown) => {
+      if (!isObjectId(workflowId)) {
+        return;
+      }
+      try {
+        await accessService.getViewableWorkflow(user, workflowId);
+        socket.join(workflowRoom(workflowId));
+      } catch {
+        // Not allowed to see this workflow: silently refuse to join its room.
+      }
+    });
+    socket.on(SocketEvents.WORKFLOW_LEAVE, (workflowId: unknown) => {
+      if (isObjectId(workflowId)) {
+        socket.leave(workflowRoom(workflowId));
+      }
+    });
+
     try {
       const { unreadCount } = await notificationService.getUnreadCount(user.userId);
       socket.emit(SocketEvents.NOTIFICATION_UNREAD_COUNT, { unreadCount });
     } catch {
       socket.emit(SocketEvents.NOTIFICATION_UNREAD_COUNT, { unreadCount: 0 });
     }
-
-    socket.on(SocketEvents.WORKFLOW_JOIN, (workflowId: string) => socket.join(`workflow:${workflowId}`));
-    socket.on(SocketEvents.WORKFLOW_LEAVE, (workflowId: string) => socket.leave(`workflow:${workflowId}`));
   });
 
   socketGateway.attach(io);

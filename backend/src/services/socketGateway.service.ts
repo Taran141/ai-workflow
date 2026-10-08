@@ -1,6 +1,10 @@
 import { Server } from "socket.io";
 import { SocketEvents } from "../constants/events";
 
+export const ADMIN_ROOM = "role:admin";
+export const userRoom = (userId: string) => `user:${userId}`;
+export const workflowRoom = (workflowId: string) => `workflow:${workflowId}`;
+
 export class SocketGatewayService {
   private io?: Server;
 
@@ -9,11 +13,17 @@ export class SocketGatewayService {
   }
 
   emitToWorkflow(workflowId: string, event: string, payload: unknown) {
-    this.io?.to(`workflow:${workflowId}`).emit(event, payload);
+    this.io?.to(workflowRoom(workflowId)).emit(event, payload);
   }
 
   emitToUser(userId: string, event: string, payload: unknown) {
-    this.io?.to(`user:${userId}`).emit(event, payload);
+    this.io?.to(userRoom(userId)).emit(event, payload);
+  }
+
+  emitToUsers(userIds: string[], event: string, payload: unknown) {
+    if (userIds.length) {
+      this.io?.to(userIds.map(userRoom)).emit(event, payload);
+    }
   }
 
   emitNotificationCreated(userId: string, payload: unknown) {
@@ -28,8 +38,13 @@ export class SocketGatewayService {
     this.emitToUser(userId, SocketEvents.NOTIFICATION_UNREAD_COUNT, { unreadCount });
   }
 
-  broadcastActivity(payload: unknown) {
-    this.io?.emit(SocketEvents.ACTIVITY_ADDED, payload);
+  emitTaskCommentAdded(workflowId: string, payload: unknown) {
+    this.emitToWorkflow(workflowId, SocketEvents.TASK_COMMENT_ADDED, payload);
+  }
+
+  /** Sends an activity entry to the people who can see its workflow, plus admins (never to everyone). */
+  emitActivity(payload: unknown, audienceUserIds: string[]) {
+    this.io?.to([...audienceUserIds.map(userRoom), ADMIN_ROOM]).emit(SocketEvents.ACTIVITY_ADDED, payload);
   }
 }
 

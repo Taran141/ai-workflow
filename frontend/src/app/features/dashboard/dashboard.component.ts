@@ -119,6 +119,10 @@ export class DashboardComponent implements OnInit {
         return `${actor}${actorRole} assigned task "${taskTitle}" to ${assignee}`;
       case "TASK_COMPLETED":
         return `${actor}${actorRole} completed task "${taskTitle}"`;
+      case "TASK_DELETED":
+        return `${actor}${actorRole} deleted task "${taskTitle}"`;
+      case "WORKFLOW_DELETED":
+        return `${actor}${actorRole} deleted workflow "${workflowTitle}"`;
       default:
         return activity.action;
     }

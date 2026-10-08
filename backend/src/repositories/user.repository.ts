@@ -1,8 +1,13 @@
+import { Role } from "../constants/roles";
 import { UserModel } from "../models/User";
 
 export class UserRepository {
   create(data: Record<string, unknown>) {
     return UserModel.create(data);
+  }
+
+  count() {
+    return UserModel.estimatedDocumentCount();
   }
 
   findMany() {
@@ -19,5 +24,9 @@ export class UserRepository {
 
   findManyByIds(ids: string[]) {
     return UserModel.find({ _id: { $in: ids } });
+  }
+
+  updateRole(id: string, role: Role) {
+    return UserModel.findByIdAndUpdate(id, { role }, { new: true, runValidators: true });
   }
 }

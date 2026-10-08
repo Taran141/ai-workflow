@@ -14,4 +14,8 @@ export class UserDirectoryService {
   list() {
     return this.api.get<UserListResponse>("/users").pipe(map((response) => response.items));
   }
+
+  updateRole(userId: string, role: User["role"]) {
+    return this.api.patch<User>(`/users/${userId}/role`, { role });
+  }
 }

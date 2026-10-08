@@ -17,8 +17,7 @@ export class WorkflowController {
 
   async list(req: Request, res: Response) {
     const workflows = await workflowService.list({
-      actorId: req.user!.userId,
-      role: req.user!.role,
+      actor: req.user!,
       search: req.query.search as string | undefined,
       status: req.query.status as string | undefined,
       sortBy: req.query.sortBy as string | undefined,
@@ -30,17 +29,17 @@ export class WorkflowController {
   }
 
   async getById(req: Request, res: Response) {
-    const workflow = await workflowService.getById(req.params.id as string);
+    const workflow = await workflowService.getById(req.params.id as string, req.user!);
     res.status(StatusCodes.OK).json(workflow);
   }
 
   async update(req: Request, res: Response) {
-    const workflow = await workflowService.update(req.params.id as string, req.body, req.user!.userId);
+    const workflow = await workflowService.update(req.params.id as string, req.body, req.user!);
     res.status(StatusCodes.OK).json(workflow);
   }
 
   async delete(req: Request, res: Response) {
-    await workflowService.delete(req.params.id as string);
+    await workflowService.delete(req.params.id as string, req.user!);
     res.status(StatusCodes.NO_CONTENT).send();
   }
 }

@@ -3,6 +3,7 @@ import { FormBuilder, Validators } from "@angular/forms";
 import { Router } from "@angular/router";
 import { finalize } from "rxjs";
 import { ApiService } from "../../core/services/api.service";
+import { AuthStateService } from "../../core/services/auth-state.service";
 import { WorkflowStoreService } from "../../core/services/workflow-store.service";
 import { Workflow } from "../../core/models/workflow.models";
 
@@ -36,7 +37,13 @@ import { Workflow } from "../../core/models/workflow.models";
             ></textarea>
           </label>
           <div class="workflow-builder-actions workflow-builder-actions-single">
-            <button type="submit" class="primary-action workflow-generate-button">Generate Workflow</button>
+            <button
+              type="submit"
+              class="primary-action workflow-generate-button"
+              [disabled]="promptForm.invalid || isGeneratingWorkflow"
+            >
+              {{ isGeneratingWorkflow ? 'Generating workflow...' : 'Generate Workflow' }}
+            </button>
           </div>
         </form>
 
@@ -126,6 +133,7 @@ import { Workflow } from "../../core/models/workflow.models";
         <div class="toolbar-actions">
           <div class="status-pill">{{ workflow.status }}</div>
           <button
+            *ngIf="canManage(workflow)"
             type="button"
             mat-stroked-button
             color="warn"
@@ -144,24 +152,31 @@ export class WorkflowListComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly workflowStore = inject(WorkflowStoreService);
   private readonly router = inject(Router);
+  private readonly authState = inject(AuthStateService);
 
   readonly workflows$ = this.workflowStore.workflows$;
   readonly promptForm = this.fb.group({
     prompt: ["Create employee onboarding workflow", [Validators.required, Validators.minLength(10)]]
   });
   readonly manualForm = this.fb.group({
-    title: ["", [Validators.required, Validators.minLength(2)]],
+    title: ["", [Validators.required, Validators.minLength(3)]],
     description: [""],
     stages: ["Backlog\nIn Progress\nReview\nDone", [Validators.required]]
   });
   deletingIds = new Set<string>();
   isCreatingManual = false;
+  isGeneratingWorkflow = false;
 
   ngOnInit() {
     this.workflowStore.refresh();
   }
 
   generate() {
+    if (this.promptForm.invalid || this.isGeneratingWorkflow) {
+      this.promptForm.markAllAsTouched();
+      return;
+    }
+
     const prompt = this.promptForm.getRawValue().prompt ?? "";
     const optimisticWorkflow: Workflow = {
       _id: `temp-${Date.now()}`,
@@ -173,10 +188,17 @@ export class WorkflowListComponent implements OnInit {
       createdAt: new Date().toISOString()
     };
 
+    this.isGeneratingWorkflow = true;
+    this.promptForm.reset({ prompt: "" });
     this.workflowStore.addOptimistic(optimisticWorkflow);
     this.api
       .post<Workflow>("/workflows/generate", { prompt })
-      .pipe(finalize(() => this.workflowStore.refresh()))
+      .pipe(
+        finalize(() => {
+          this.isGeneratingWorkflow = false;
+          this.workflowStore.refresh();
+        })
+      )
       .subscribe();
   }
 
@@ -232,6 +254,11 @@ export class WorkflowListComponent implements OnInit {
     }
   }
 
+  canManage(workflow: Workflow) {
+    const user = this.authState.user;
+    return user?.role === "admin" || (!!user && workflow.createdBy === user._id);
+  }
+
   deleteWorkflow(workflow: Workflow, event: Event) {
     event.stopPropagation();
     if (workflow._id.startsWith("temp-")) {
@@ -240,7 +267,10 @@ export class WorkflowListComponent implements OnInit {
 
     this.deletingIds.add(workflow._id);
     this.api.delete<void>(`/workflows/${workflow._id}`).pipe(finalize(() => this.deletingIds.delete(workflow._id))).subscribe({
-      next: () => this.workflowStore.refresh()
+      next: () => {
+        this.workflowStore.removeWorkflow(workflow._id);
+        this.workflowStore.refresh();
+      }
     });
   }
 }

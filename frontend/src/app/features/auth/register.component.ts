@@ -15,8 +15,8 @@ import { AuthService } from "../../core/services/auth.service";
           <div class="eyebrow">Set up your workspace</div>
           <h1>Start with one account, then invite the rest of the team.</h1>
           <p>
-            Create an admin account to generate workflows, assign work, monitor live progress, and review activity in
-            one place.
+            Generate workflows, assign work, monitor live progress, and review activity in one place. The first account
+            becomes the workspace admin; admins can promote teammates from the People page.
           </p>
           <div class="auth-highlights">
             <div class="auth-highlight">
@@ -38,7 +38,7 @@ import { AuthService } from "../../core/services/auth.service";
           <div class="auth-form-header">
             <div class="eyebrow">Create account</div>
             <h2>Create your workspace account</h2>
-            <p>Choose a strong password, add your phone number, and pick the role you want to start with.</p>
+            <p>Choose a strong password and add your phone number if you want SMS updates.</p>
           </div>
 
           <form class="form-grid" [formGroup]="form" (ngSubmit)="submit()">
@@ -74,22 +74,6 @@ import { AuthService } from "../../core/services/auth.service";
               </span>
             </label>
 
-            <label class="auth-field">
-              <span class="auth-label">Role</span>
-              <div class="auth-select-wrap">
-                <select class="auth-input auth-select" formControlName="role">
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-                <span class="auth-select-icon" aria-hidden="true">â–¾</span>
-              </div>
-            </label>
-
-            <div class="inline-tips">
-              <div class="mini-tip"><mat-icon>admin_panel_settings</mat-icon><span>Admin can manage workflows.</span></div>
-              <div class="mini-tip"><mat-icon>person</mat-icon><span>User is better for assignees and contributors.</span></div>
-            </div>
-
             <div class="form-error" *ngIf="submitError">{{ submitError }}</div>
 
             <div class="auth-actions">
@@ -120,11 +104,10 @@ export class RegisterComponent {
     password: [
       "",
       [Validators.required, Validators.minLength(8), Validators.pattern(RegisterComponent.passwordPattern)]
-    ],
-    role: ["user" as "admin" | "user", [Validators.required]]
+    ]
   });
 
-  showError(controlName: "name" | "email" | "phone" | "password" | "role", errorCode: string) {
+  showError(controlName: "name" | "email" | "phone" | "password", errorCode: string) {
     const control = this.form.get(controlName);
     return !!control && control.touched && control.hasError(errorCode);
   }
@@ -137,14 +120,13 @@ export class RegisterComponent {
     }
 
     this.isSubmitting = true;
-    const { name, email, phone, password, role } = this.form.getRawValue();
+    const { name, email, phone, password } = this.form.getRawValue();
 
     this.authService
       .register({
         name: name ?? "",
         email: email ?? "",
         password: password ?? "",
-        role: (role ?? "user") as "admin" | "user",
         ...(phone?.trim() ? { phone: phone.trim() } : {})
       })
       .pipe(finalize(() => (this.isSubmitting = false)))

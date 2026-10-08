@@ -7,6 +7,7 @@ const activityService = new ActivityService();
 export class ActivityController {
   async list(req: Request, res: Response) {
     const activities = await activityService.list({
+      actor: req.user!,
       entityType: req.query.entityType as string | undefined,
       entityId: req.query.entityId as string | undefined,
       page: req.query.page ? Number(req.query.page) : undefined,
@@ -15,4 +16,3 @@ export class ActivityController {
     res.status(StatusCodes.OK).json(activities);
   }
 }
-

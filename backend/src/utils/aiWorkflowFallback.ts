@@ -1,11 +1,60 @@
-const normalizeTitle = (prompt: string) => {
-  const cleaned = prompt.replace(/^create\s+/i, "").replace(/\s+workflow$/i, "").trim();
-  return cleaned ? `${cleaned} workflow` : "Generated workflow";
+const toTitleCase = (value: string) =>
+  value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+const cleanPromptText = (prompt: string) =>
+  prompt
+    .replace(/\[[^\]]+\]/g, " ")
+    .replace(/requirements?:[\s\S]*$/i, " ")
+    .replace(/output format:[\s\S]*$/i, " ")
+    .replace(/act as [^.?!:]+[.?!:]\s*/i, "")
+    .replace(/help me (design|build|create)\s+/i, "")
+    .replace(/create\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const extractWorkflowTopic = (prompt: string) => {
+  const explicitUseCase = prompt.match(/use case:\s*(.+?)(requirements?:|output format:|$)/i)?.[1]?.trim();
+  const candidate = cleanPromptText(explicitUseCase || prompt);
+  if (!candidate) {
+    return "workflow";
+  }
+
+  const trimmed = candidate.replace(/\b(workflow|automation system|system)\b/gi, "").replace(/\s+/g, " ").trim();
+  return trimmed || candidate;
+};
+
+export const summarizeWorkflowTitle = (prompt: string, generatedTitle?: string) => {
+  const source = (generatedTitle || "").trim();
+  const looksPromptLike =
+    source.length > 80 || /requirements?:|output format:|act as |help me /i.test(source) || source.split(" ").length > 10;
+
+  if (source && !looksPromptLike) {
+    return source.replace(/\s+/g, " ").trim();
+  }
+
+  const topic = extractWorkflowTopic(prompt);
+  const shortTopic = topic.split(" ").filter(Boolean).slice(0, 6).join(" ");
+  const normalized = shortTopic || "Generated workflow";
+  return `${toTitleCase(normalized)} Workflow`.replace(/\s+workflow\s+workflow$/i, " Workflow");
+};
+
+export const summarizeWorkflowDescription = (prompt: string, generatedDescription?: string) => {
+  const source = (generatedDescription || "").trim();
+  const looksPromptLike =
+    source.length > 180 || /requirements?:|output format:|act as |help me /i.test(source) || source.split(" ").length > 24;
+
+  if (source && !looksPromptLike) {
+    return source.replace(/\s+/g, " ").trim();
+  }
+
+  const topic = extractWorkflowTopic(prompt);
+  const cleanedTopic = topic.replace(/[.?!,:;]+$/, "").trim();
+  return `AI-generated workflow for ${cleanedTopic || "the requested process"}.`;
 };
 
 const buildEmployeeOnboardingWorkflow = (prompt: string) => ({
   title: "Employee onboarding workflow",
-  description: `Structured onboarding plan generated from prompt: ${prompt}`,
+  description: "AI-generated workflow for employee onboarding across documents, access, training, and review milestones.",
   stages: [
     {
       name: "Pre-boarding",
@@ -126,13 +175,13 @@ export const buildFallbackWorkflow = (prompt: string) => {
   }
 
   return {
-    title: normalizeTitle(prompt),
-    description: `AI-derived workflow generated from prompt: ${prompt}`,
+    title: summarizeWorkflowTitle(prompt),
+    description: summarizeWorkflowDescription(prompt),
     stages: [
       {
-      name: "Planning",
-      order: 1,
-      tasks: [
+        name: "Planning",
+        order: 1,
+        tasks: [
           {
             title: "Define scope",
             description: "Clarify what the workflow should cover, what success looks like, and what is out of scope.",

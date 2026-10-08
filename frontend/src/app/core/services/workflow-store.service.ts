@@ -47,6 +47,7 @@ export class WorkflowStoreService {
 
     this.socket.on<Workflow>("workflow-created").subscribe(() => this.refresh());
     this.socket.on("task-updated").subscribe(() => this.refresh());
+    this.socket.on("workflow-deleted").subscribe(() => this.refresh());
   }
 
   refresh(overrides?: Partial<{ search: string; status?: string; sortBy?: string; sortOrder?: "asc" | "desc" }>) {
@@ -67,5 +68,9 @@ export class WorkflowStoreService {
 
   addOptimistic(workflow: Workflow) {
     this.workflowsSubject.next([workflow, ...this.workflowsSubject.value]);
+  }
+
+  removeWorkflow(workflowId: string) {
+    this.workflowsSubject.next(this.workflowsSubject.value.filter((workflow) => workflow._id !== workflowId));
   }
 }
